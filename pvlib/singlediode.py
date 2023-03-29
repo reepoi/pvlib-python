@@ -703,9 +703,8 @@ def _pwr_optfcn(df, loc):
     '''
     Function to find power from ``i_from_v``.
     '''
-    V_per_curve = df[loc]
 
     I = _lambertw_i_from_v(df['r_sh'], df['r_s'],           # noqa: E741, N806
-                           df['nNsVth'], V_per_curve, df['i_0'], df['i_l'])
+                           df['nNsVth'], df[loc], df['i_0'], df['i_l'])
 
-    return I * V_per_curve
+    return I * df[loc]
