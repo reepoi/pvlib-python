@@ -509,18 +509,28 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-    Gsh, Rs, a, I, I0, IL = \
-        np.broadcast_arrays(conductance_shunt, resistance_series, nNsVth,
-                            current, saturation_current, photocurrent)
+    Gsh, Rs, a, I0, IL = [
+        np.transpose(np.atleast_2d(arr))
+        for arr in np.broadcast_arrays(conductance_shunt, resistance_series,
+                                       nNsVth, saturation_current,
+                                       photocurrent)
+    ]
+
+    if np.isscalar(current):
+        I = np.full(Gsh.shape, current)
+    elif current.ndim == 1:
+        I = np.tile(current, (Gsh.shape[0], 1))
+    else:
+        I = np.asarray(current)
 
     # Intitalize output V (I might not be float64)
     V = np.full_like(I, np.nan, dtype=np.float64)
 
     # Determine indices where 0 < Gsh requires implicit model solution
-    idx_p = 0. < Gsh
+    idx_p = (0. < Gsh).squeeze()
 
     # Determine indices where 0 = Gsh allows explicit model solution
-    idx_z = 0. == Gsh
+    idx_z = (0. == Gsh).squeeze()
 
     # Explicit solutions where Gsh=0
     if np.any(idx_z):
@@ -586,18 +596,28 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-    Gsh, Rs, a, V, I0, IL = \
-        np.broadcast_arrays(conductance_shunt, resistance_series, nNsVth,
-                            voltage, saturation_current, photocurrent)
+    Gsh, Rs, a, I0, IL = [
+        np.transpose(np.atleast_2d(arr))
+        for arr in np.broadcast_arrays(conductance_shunt, resistance_series,
+                                       nNsVth, saturation_current,
+                                       photocurrent)
+    ]
+
+    if np.isscalar(voltage):
+        V = np.full(Gsh.shape, voltage)
+    elif voltage.ndim == 1:
+        V = np.tile(voltage, (Gsh.shape[0], 1))
+    else:
+        V = np.asarray(voltage)
 
     # Intitalize output I (V might not be float64)
     I = np.full_like(V, np.nan, dtype=np.float64)           # noqa: E741, N806
 
     # Determine indices where 0 < Rs requires implicit model solution
-    idx_p = 0. < Rs
+    idx_p = (0. < Rs).squeeze()
 
     # Determine indices where 0 = Rs allows explicit model solution
-    idx_z = 0. == Rs
+    idx_z = (0. == Rs).squeeze()
 
     # Explicit solutions where Rs=0
     if np.any(idx_z):
@@ -648,8 +668,8 @@ def _lambertw(photocurrent, saturation_current, resistance_series,
 
     # Find the voltage, v_mp, where the power is maximized.
     # Start the golden section search at v_oc * 1.14
-    p_mp, v_mp = _golden_sect_DataFrame(params, 0., v_oc * 1.14,
-                                        _pwr_optfcn)
+    p_mp, v_mp = _golden_sect_DataFrame(params, np.zeros_like(v_oc),
+                                        v_oc * 1.14, _pwr_optfcn)
 
     # Find Imp using Lambert W
     i_mp = _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth,
@@ -683,8 +703,9 @@ def _pwr_optfcn(df, loc):
     '''
     Function to find power from ``i_from_v``.
     '''
+    V_per_curve = df[loc]
 
     I = _lambertw_i_from_v(df['r_sh'], df['r_s'],           # noqa: E741, N806
-                           df['nNsVth'], df[loc], df['i_0'], df['i_l'])
+                           df['nNsVth'], V_per_curve, df['i_0'], df['i_l'])
 
-    return I * df[loc]
+    return I * V_per_curve

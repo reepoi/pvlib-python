@@ -32,6 +32,7 @@ Examples of modeling IV curves using a single-diode circuit equivalent model.
 # :py:meth:`pvlib.pvsystem.singlediode` is then used to generate the IV curves.
 
 from pvlib import pvsystem
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -88,15 +89,24 @@ IL, I0, Rs, Rsh, nNsVth = pvsystem.calcparams_desoto(
 )
 
 # plug the parameters into the SDE and solve for IV curves:
-curve_info = pvsystem.singlediode(
-    photocurrent=IL,
-    saturation_current=I0,
-    resistance_series=Rs,
-    resistance_shunt=Rsh,
-    nNsVth=nNsVth,
-    ivcurve_pnts=100,
-    method='lambertw'
+SDE_params = {
+    'photocurrent': IL,
+    'saturation_current': I0,
+    'resistance_series': Rs,
+    'resistance_shunt': Rsh,
+    'nNsVth': nNsVth
+}
+curve_info = pvsystem.singlediode(method='lambertw', **SDE_params)
+
+# find points on the IV curve
+ivcurve_pnts = 100
+linspace = np.linspace(0, 1, ivcurve_pnts)
+voltages = pd.DataFrame(
+    curve_info['v_oc'].to_numpy().reshape(-1, 1) * linspace,
+    index=curve_info.index
 )
+currents = pvsystem.i_from_v(voltage=voltages, method='lambertw', **SDE_params)
+
 
 # plot the calculated curves:
 plt.figure()
@@ -105,11 +115,10 @@ for i, case in conditions.iterrows():
         "$G_{eff}$ " + f"{case['Geff']} $W/m^2$\n"
         "$T_{cell}$ " + f"{case['Tcell']} $\\degree C$"
     )
-    plt.plot(curve_info['v'][i], curve_info['i'][i], label=label)
-    v_mp = curve_info['v_mp'][i]
-    i_mp = curve_info['i_mp'][i]
-    # mark the MPP
-    plt.plot([v_mp], [i_mp], ls='', marker='o', c='k')
+    plt.plot(voltages.loc[i], currents.loc[i], label=label)
+
+# mark the MPP
+plt.plot(curve_info['v_mp'], curve_info['i_mp'], ls='', marker='o', c='k')
 
 plt.legend(loc=(1.0, 0))
 plt.xlabel('Module voltage [V]')

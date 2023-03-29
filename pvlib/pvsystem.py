@@ -2846,7 +2846,7 @@ def singlediode(photocurrent, saturation_current, resistance_series,
         points = i_sc, v_oc, i_mp, v_mp, p_mp, i_x, i_xx
 
     points = np.atleast_1d(*points)  # covert scalars to 1d arrays
-    points = np.vstack(points).T  # create DataFrame rows
+    points = np.hstack(points)  # collect DataFrame columns
 
     index = None  # keep pd.Series index, if available
     if isinstance(photocurrent, pd.Series):
@@ -3065,7 +3065,7 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
 
     Returns
     -------
-    current : np.ndarray or scalar
+    current : pd.DataFrame
 
     References
     ----------
@@ -3074,10 +3074,10 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
        Energy Materials and Solar Cells, 81 (2004) 269-277.
     '''
     if method.lower() == 'lambertw':
-        return _singlediode._lambertw_i_from_v(
+        return pd.DataFrame(_singlediode._lambertw_i_from_v(
             resistance_shunt, resistance_series, nNsVth, voltage,
             saturation_current, photocurrent
-        )
+        ))
     else:
         # Calculate points on the IV curve using either 'newton' or 'brentq'
         # methods. Voltages are determined by first solving the single diode
