@@ -2846,7 +2846,7 @@ def singlediode(photocurrent, saturation_current, resistance_series,
         points = i_sc, v_oc, i_mp, v_mp, p_mp, i_x, i_xx
 
     points = np.atleast_1d(*points)  # covert scalars to 1d arrays
-    points = np.hstack(points)  # collect DataFrame columns
+    points = np.vstack(points).T  # collect rows into DataFrame columns
 
     index = None  # keep pd.Series index, if available
     if isinstance(photocurrent, pd.Series):

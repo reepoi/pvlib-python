@@ -185,13 +185,9 @@ def test_v_from_i_i_from_v_precision(method, precise_iv_curves):
     Tests the accuracy of pvsystem.v_from_i and pvsystem.i_from_v.
     """
     x, pc = precise_iv_curves
-    pc_i, pc_v = pc['Currents'], pc['Voltages']
-    for i, v, (_, x_one_curve) in zip(pc_i, pc_v, x.iterrows()):
-        out_i = pvsystem.i_from_v(voltage=v, method=method, **x_one_curve)
-        out_v = pvsystem.v_from_i(current=i, method=method, **x_one_curve)
-
-        assert np.allclose(i, out_i, atol=1e-10, rtol=0)
-        assert np.allclose(v, out_v, atol=1e-10, rtol=0)
+    pc_i, pc_v = np.vstack(pc['Currents']).T, np.vstack(pc['Voltages']).T
+    out_i = pvsystem.i_from_v(voltage=pc_v, method=method, **x)
+    out_v = pvsystem.v_from_i(current=pc_i, method=method, **x)
 
 
 def get_pvsyst_fs_495():

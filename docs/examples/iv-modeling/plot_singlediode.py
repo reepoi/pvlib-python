@@ -102,8 +102,7 @@ curve_info = pvsystem.singlediode(method='lambertw', **SDE_params)
 ivcurve_pnts = 100
 linspace = np.linspace(0, 1, ivcurve_pnts)
 voltages = pd.DataFrame(
-    curve_info['v_oc'].to_numpy().reshape(-1, 1) * linspace,
-    index=curve_info.index
+    (curve_info['v_oc'].to_numpy().reshape(-1, 1) * linspace).T
 )
 currents = pvsystem.i_from_v(voltage=voltages, method='lambertw', **SDE_params)
 
@@ -115,7 +114,7 @@ for i, case in conditions.iterrows():
         "$G_{eff}$ " + f"{case['Geff']} $W/m^2$\n"
         "$T_{cell}$ " + f"{case['Tcell']} $\\degree C$"
     )
-    plt.plot(voltages.loc[i], currents.loc[i], label=label)
+    plt.plot(voltages[i], currents[i], label=label)
 
 # mark the MPP
 plt.plot(curve_info['v_mp'], curve_info['i_mp'], ls='', marker='o', c='k')
