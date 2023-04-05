@@ -153,6 +153,18 @@ def bishop88(diode_voltage, photocurrent, saturation_current,
        2010
        :doi:`10.4229/25thEUPVSEC2010-4BV.1.114`
     """
+    output_is_scalar = all(map(np.isscalar, (
+        diode_voltage, photocurrent, saturation_current, resistance_series,
+        resistance_shunt, nNsVth, d2mutau, NsVbi, breakdown_factor,
+        breakdown_voltage, breakdown_exp
+    )))
+    (diode_voltage, photocurrent, saturation_current, resistance_series,
+     resistance_shunt, nNsVth, d2mutau, NsVbi, breakdown_factor,
+     breakdown_voltage, breakdown_exp) = map(np.atleast_2d, (
+         diode_voltage, photocurrent, saturation_current,
+         resistance_series, resistance_shunt, nNsVth, d2mutau,
+         NsVbi, breakdown_factor, breakdown_voltage, breakdown_exp))
+
     # calculate recombination loss current where d2mutau > 0
     is_recomb = d2mutau > 0  # True where there is thin-film recombination loss
     v_recomb = np.where(is_recomb, NsVbi - diode_voltage, np.inf)
@@ -199,6 +211,9 @@ def bishop88(diode_voltage, photocurrent, saturation_current,
             + grad_i
         )  # d2p/dv/dvd
         retval += (grad_i, grad_v, grad, grad_p, grad2p)
+    retval = tuple(map(np.squeeze, retval))
+    if output_is_scalar:
+        return tuple(i.item() if i.size == 1 else i for i in retval)
     return retval
 
 
@@ -374,6 +389,7 @@ def bishop88_v_from_i(current, photocurrent, saturation_current,
                     args=args)
     else:
         raise NotImplementedError("Method '%s' isn't implemented" % method)
+    breakpoint()
     return bishop88(vd, *args)[1]
 
 
@@ -531,7 +547,7 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
     # Explicit solutions where Gsh=0
     if np.any(idx_z):
         V[:, idx_z.squeeze()] = a[idx_z] * np.log1p((IL[idx_z] - I[:, idx_z.squeeze()]) / I0[idx_z]) - \
-                   I[idx_z] * Rs[idx_z]
+            I[idx_z] * Rs[idx_z]
 
     # Only compute using LambertW if there are cases with Gsh>0
     if np.any(idx_p):
@@ -570,7 +586,7 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
         #  V = -I*(Rs + Rsh) + IL*Rsh - a*lambertwterm + I0*Rsh
         # Recast in terms of Gsh=1/Rsh for better numerical stability.
         V[:, idx_p.squeeze()] = (IL[idx_p] + I0[idx_p] - I[:, idx_p.squeeze()]) / Gsh[idx_p] - \
-                I[:, idx_p.squeeze()] * Rs[idx_p] - a[idx_p] * lambertwterm
+            I[:, idx_p.squeeze()] * Rs[idx_p] - a[idx_p] * lambertwterm
 
     if output_is_scalar:
         return V.item()
@@ -614,16 +630,16 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
     # Explicit solutions where Rs=0
     if np.any(idx_z):
         I[:, idx_z.squeeze()] = IL[idx_z] - I0[idx_z] * np.expm1(V[:, idx_z.squeeze()] / a[idx_z]) - \
-                Gsh[idx_z] * V[:, idx_z.squeeze()]
+            Gsh[idx_z] * V[:, idx_z.squeeze()]
 
     # Only compute using LambertW if there are cases with Rs>0
     # Does NOT handle possibility of overflow, github issue 298
     if np.any(idx_p):
         # LambertW argument, cannot be float128, may overflow to np.inf
         argW = Rs[idx_p] * I0[idx_p] / (
-                    a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)) * \
-                        np.exp((Rs[idx_p] * (IL[idx_p] + I0[idx_p]) + V[:, idx_p.squeeze()]) /
-                      (a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)))
+            a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)) * \
+            np.exp((Rs[idx_p] * (IL[idx_p] + I0[idx_p]) + V[:, idx_p.squeeze()]) /
+                   (a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)))
 
         # lambertw typically returns complex value with zero imaginary part
         # may overflow to np.inf
@@ -633,11 +649,14 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
         #  I = -V/(Rs + Rsh) - (a/Rs)*lambertwterm + Rsh*(IL + I0)/(Rs + Rsh)
         # Recast in terms of Gsh=1/Rsh for better numerical stability.
         I[:, idx_p.squeeze()] = (IL[idx_p] + I0[idx_p] - V[:, idx_p.squeeze()] * Gsh[idx_p]) / \
-                   (Rs[idx_p] * Gsh[idx_p] + 1.) - (
-                               a[idx_p] / Rs[idx_p]) * lambertwterm
+            (Rs[idx_p] * Gsh[idx_p] + 1.) - (
+            a[idx_p] / Rs[idx_p]) * lambertwterm
 
     if output_is_scalar:
         return I.item()
+    elif I.size == 1:
+        # when inputs are arrays of size 1, output I with matching shape
+        return np.full(nNsVth.shape, I.item())
     else:
         return I.squeeze()
 

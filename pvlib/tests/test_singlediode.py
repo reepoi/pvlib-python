@@ -32,6 +32,7 @@ def test_method_spr_e20_327(method, cec_module_spr_e20_327):
     assert np.isclose(pvs['i_sc'], isc)
     assert np.isclose(pvs['v_oc'], voc)
     # the singlediode method doesn't actually get the MPP correct
+    breakpoint()
     pvs_imp = pvsystem.i_from_v(rsh, rs, nnsvt, vmp, io, il, method='lambertw')
     pvs_vmp = pvsystem.v_from_i(rsh, rs, nnsvt, imp, io, il, method='lambertw')
     assert np.isclose(pvs_imp, imp)
@@ -186,8 +187,12 @@ def test_v_from_i_i_from_v_precision(method, precise_iv_curves):
     """
     x, pc = precise_iv_curves
     pc_i, pc_v = np.vstack(pc['Currents']).T, np.vstack(pc['Voltages']).T
+
     out_i = pvsystem.i_from_v(voltage=pc_v, method=method, **x)
     out_v = pvsystem.v_from_i(current=pc_i, method=method, **x)
+
+    assert np.allclose(pc_i, out_i, atol=1e-10, rtol=0)
+    assert np.allclose(pc_v, out_v, atol=1e-10, rtol=0)
 
 
 def get_pvsyst_fs_495():

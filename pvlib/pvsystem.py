@@ -3074,10 +3074,15 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
        Energy Materials and Solar Cells, 81 (2004) 269-277.
     '''
     if method.lower() == 'lambertw':
-        return pd.DataFrame(_singlediode._lambertw_i_from_v(
+        current = _singlediode._lambertw_i_from_v(
             resistance_shunt, resistance_series, nNsVth, voltage,
             saturation_current, photocurrent
-        ))
+        )
+        if np.isscalar(current):
+            return current
+        return current
+        current = np.atleast_2d(current)  # handle rank-0 arrays
+        return pd.DataFrame(current)
     else:
         # Calculate points on the IV curve using either 'newton' or 'brentq'
         # methods. Voltages are determined by first solving the single diode
