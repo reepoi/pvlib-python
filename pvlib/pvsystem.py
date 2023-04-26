@@ -2985,20 +2985,31 @@ def v_from_i(resistance_shunt, resistance_series, nNsVth, current,
        parameters of real solar cells using Lambert W-function", Solar
        Energy Materials and Solar Cells, 81 (2004) 269-277.
     '''
+    kwargs = {'resistance_shunt': resistance_shunt,
+              'resistance_series': resistance_series,
+              'nNsVth': nNsVth, 'saturation_current': saturation_current,
+              'photocurrent': photocurrent}
+
+    try:
+        np.broadcast_arrays(*kwargs.values())
+    except ValueError:
+        raise ValueError('Expected all single diode model parameters to be broadcastable to 1d arrays.')
+
+    if all(map(np.isscalar, kwargs.values())) and not np.isscalar(current) and current.ndim == 1:
+        raise ValueError('Given parameters for one single diode model, but current has shape {current.shape}.'
+                         'Please pass current with shape {current.T.shape} to use multiple currents for one model.')
+
     if method.lower() == 'lambertw':
-        return _singlediode._lambertw_v_from_i(
-            resistance_shunt, resistance_series, nNsVth, current,
-            saturation_current, photocurrent
-        )
+        return _singlediode._lambertw_v_from_i(current=current, **kwargs)
     else:
         # Calculate points on the IV curve using either 'newton' or 'brentq'
         # methods. Voltages are determined by first solving the single diode
         # equation for the diode voltage V_d then backing out voltage
-        args = (current, photocurrent, saturation_current,
-                resistance_series, resistance_shunt, nNsVth)
-        V = _singlediode.bishop88_v_from_i(*args, method=method.lower())
+
+        V = _singlediode.bishop88_v_from_i(current=current,
+                                           method=method.lower(), **kwargs)
         # find the right size and shape for returns
-        size, shape = _singlediode._get_size_and_shape(args)
+        size, shape = _singlediode._get_size_and_shape((current, *kwargs.values()))
         if size <= 1:
             if shape is not None:
                 V = np.tile(V, shape)
@@ -3078,9 +3089,9 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
             resistance_shunt, resistance_series, nNsVth, voltage,
             saturation_current, photocurrent
         )
+        return current
         if np.isscalar(current):
             return current
-        return current
         current = np.atleast_2d(current)  # handle rank-0 arrays
         return pd.DataFrame(current)
     else:

@@ -992,25 +992,25 @@ def test_PVSystem_multi_array_calcparams_value_error(
     {  # Can handle mixed inputs with a rank-2 array with infinite shunt
       #  resistance, Rsh=inf gives V=Voc=nNsVth*(np.log(IL + I0) - np.log(I0)
       #  at I=0
-      'Rsh': np.array([[np.inf, np.inf], [np.inf, np.inf]]),
+      'Rsh': np.array([np.inf, np.inf]),
       'Rs': np.array([0.1]),
       'nNsVth': np.array(0.5),
       'I': 0.,
       'I0': np.array([6.e-7]),
       'IL': np.array([7.]),
-      'V_expected': 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))*np.ones((2, 2))
+      'V_expected': 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))*np.ones(2)
     },
     {  # Can handle ideal series and shunt, Rsh=inf and Rs=0 give
       #  V = nNsVth*(np.log(IL - I + I0) - np.log(I0))
       'Rsh': np.inf,
       'Rs': 0.,
       'nNsVth': 0.5,
-      'I': np.array([7., 7./2., 0.]),
+      'I': np.array([[7., 7./2., 0.]]),
       'I0': 6.e-7,
       'IL': 7.,
-      'V_expected': np.array([0., 0.5*(np.log(7. - 7./2. + 6.e-7) -
+      'V_expected': np.array([[0., 0.5*(np.log(7. - 7./2. + 6.e-7) -
                               np.log(6.e-7)), 0.5*(np.log(7. + 6.e-7) -
-                              np.log(6.e-7))])
+                              np.log(6.e-7))]])
     },
     {  # Can handle only ideal series resistance, no closed form solution
       'Rsh': 20.,
@@ -1080,10 +1080,10 @@ def test_v_from_i(fixture_v_from_i, method, atol):
     V_expected = fixture_v_from_i['V_expected']
 
     V = pvsystem.v_from_i(Rsh, Rs, nNsVth, I, I0, IL, method=method)
-    assert(isinstance(V, type(V_expected)))
+    assert isinstance(V, type(V_expected))
     if isinstance(V, type(np.ndarray)):
-        assert(isinstance(V.dtype, type(V_expected.dtype)))
-        assert(V.shape == V_expected.shape)
+        assert isinstance(V.dtype, type(V_expected.dtype))
+        assert V.shape == V_expected.shape
     assert_allclose(V, V_expected, atol=atol)
 
 
@@ -1152,12 +1152,12 @@ def test_i_from_v_from_i(fixture_v_from_i):
     {  # Can handle mixed inputs with a rank-2 array with zero series
       #  resistance, Rs=0 gives I=IL=Isc at V=0
       'Rsh': np.array([20.]),
-      'Rs': np.array([[0., 0.], [0., 0.]]),
+      'Rs': np.array([0., 0., 0., 0.]),
       'nNsVth': np.array(0.5),
       'V': 0.,
       'I0': np.array([6.e-7]),
       'IL': np.array([7.]),
-      'I_expected': np.array([[7., 7.], [7., 7.]])
+      'I_expected': np.array([7., 7., 7., 7.])
     },
     {  # Can handle ideal series and shunt, Rsh=inf and Rs=0 give
       #  V_oc = nNsVth*(np.log(IL + I0) - np.log(I0))

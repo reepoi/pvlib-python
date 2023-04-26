@@ -153,18 +153,6 @@ def bishop88(diode_voltage, photocurrent, saturation_current,
        2010
        :doi:`10.4229/25thEUPVSEC2010-4BV.1.114`
     """
-    output_is_scalar = all(map(np.isscalar, (
-        diode_voltage, photocurrent, saturation_current, resistance_series,
-        resistance_shunt, nNsVth, d2mutau, NsVbi, breakdown_factor,
-        breakdown_voltage, breakdown_exp
-    )))
-    (diode_voltage, photocurrent, saturation_current, resistance_series,
-     resistance_shunt, nNsVth, d2mutau, NsVbi, breakdown_factor,
-     breakdown_voltage, breakdown_exp) = map(np.atleast_2d, (
-         diode_voltage, photocurrent, saturation_current,
-         resistance_series, resistance_shunt, nNsVth, d2mutau,
-         NsVbi, breakdown_factor, breakdown_voltage, breakdown_exp))
-
     # calculate recombination loss current where d2mutau > 0
     is_recomb = d2mutau > 0  # True where there is thin-film recombination loss
     v_recomb = np.where(is_recomb, NsVbi - diode_voltage, np.inf)
@@ -211,9 +199,6 @@ def bishop88(diode_voltage, photocurrent, saturation_current,
             + grad_i
         )  # d2p/dv/dvd
         retval += (grad_i, grad_v, grad, grad_p, grad2p)
-    retval = tuple(map(np.squeeze, retval))
-    if output_is_scalar:
-        return tuple(i.item() if i.size == 1 else i for i in retval)
     return retval
 
 
@@ -389,7 +374,6 @@ def bishop88_v_from_i(current, photocurrent, saturation_current,
                     args=args)
     else:
         raise NotImplementedError("Method '%s' isn't implemented" % method)
-    breakpoint()
     return bishop88(vd, *args)[1]
 
 
@@ -513,25 +497,23 @@ def _prepare_newton_inputs(i_or_v_tup, args, v0):
 
 def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
                        saturation_current, photocurrent):
-    # Record if inputs were all scalar
-    output_is_scalar = all(map(np.isscalar,
-                               [resistance_shunt, resistance_series, nNsVth,
-                                current, saturation_current, photocurrent]))
-
     # This transforms Gsh=1/Rsh, including ideal Rsh=np.inf into Gsh=0., which
     #  is generally more numerically stable
     conductance_shunt = 1. / resistance_shunt
 
+    args = (conductance_shunt, resistance_series, nNsVth, saturation_current,
+            photocurrent)
+
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-    Gsh, Rs, a, I0, IL = map(np.atleast_2d, np.broadcast_arrays(
-        conductance_shunt, resistance_series, nNsVth, saturation_current,
-        photocurrent
-    ))
+    Gsh, Rs, a, I0, IL = np.broadcast_arrays(*args)
+
+    # shapes of the above must be equal
+    # all scalar with current being (N,) is not allowed, current must be (N, 1)
 
     if np.isscalar(current):
-        I = np.full(Gsh.shape, current)
+        I = np.atleast_2d(np.full(a.shape, current))
     else:
         I = np.atleast_2d(current)
 
@@ -546,8 +528,8 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
 
     # Explicit solutions where Gsh=0
     if np.any(idx_z):
-        V[:, idx_z.squeeze()] = a[idx_z] * np.log1p((IL[idx_z] - I[:, idx_z.squeeze()]) / I0[idx_z]) - \
-            I[idx_z] * Rs[idx_z]
+        V[:, idx_z] = a[idx_z] * np.log1p((IL[idx_z] - I[:, idx_z]) / I0[idx_z]) - \
+            I[:, idx_z] * Rs[idx_z]
 
     # Only compute using LambertW if there are cases with Gsh>0
     if np.any(idx_p):
@@ -555,7 +537,7 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
         # overflow is explicitly handled below, so ignore warnings here
         with np.errstate(over='ignore'):
             argW = (I0[idx_p] / (Gsh[idx_p] * a[idx_p]) *
-                    np.exp((-I[:, idx_p.squeeze()] + IL[idx_p] + I0[idx_p]) /
+                    np.exp((-I[:, idx_p] + IL[idx_p] + I0[idx_p]) /
                            (Gsh[idx_p] * a[idx_p])))
 
         # lambertw typically returns complex value with zero imaginary part
@@ -570,7 +552,7 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
             # Calculate using log(argW) in case argW is really big
             logargW = (np.log(I0[idx_p]) - np.log(Gsh[idx_p]) -
                        np.log(a[idx_p]) +
-                       (-I[:, idx_p.squeeze()] + IL[idx_p] + I0[idx_p]) /
+                       (-I[:, idx_p] + IL[idx_p] + I0[idx_p]) /
                        (Gsh[idx_p] * a[idx_p]))[idx_inf]
 
             # Three iterations of Newton-Raphson method to solve
@@ -585,36 +567,33 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
         # Eqn. 3 in Jain and Kapoor, 2004
         #  V = -I*(Rs + Rsh) + IL*Rsh - a*lambertwterm + I0*Rsh
         # Recast in terms of Gsh=1/Rsh for better numerical stability.
-        V[:, idx_p.squeeze()] = (IL[idx_p] + I0[idx_p] - I[:, idx_p.squeeze()]) / Gsh[idx_p] - \
-            I[:, idx_p.squeeze()] * Rs[idx_p] - a[idx_p] * lambertwterm
+        V[:, idx_p] = (IL[idx_p] + I0[idx_p] - I[:, idx_p]) / Gsh[idx_p] - \
+            I[:, idx_p] * Rs[idx_p] - a[idx_p] * lambertwterm
 
-    if output_is_scalar:
+    # prioritize the shape of current by passing it first
+    shape = _get_size_and_shape((current, *args))[1]
+
+    if shape is None:
         return V.item()
-    else:
-        return V.squeeze()
+    return V.reshape(shape)
 
 
 def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
                        saturation_current, photocurrent):
-    # Record if inputs were all scalar
-    output_is_scalar = all(map(np.isscalar,
-                               [resistance_shunt, resistance_series, nNsVth,
-                                voltage, saturation_current, photocurrent]))
-
     # This transforms Gsh=1/Rsh, including ideal Rsh=np.inf into Gsh=0., which
     #  is generally more numerically stable
     conductance_shunt = 1. / resistance_shunt
 
+    args = (conductance_shunt, resistance_series, nNsVth, saturation_current,
+            photocurrent)
+
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-    Gsh, Rs, a, I0, IL = map(np.atleast_2d, np.broadcast_arrays(
-        conductance_shunt, resistance_series, nNsVth, saturation_current,
-        photocurrent
-    ))
+    Gsh, Rs, a, I0, IL = np.broadcast_arrays(*args)
 
     if np.isscalar(voltage):
-        V = np.full(a.shape, voltage)
+        V = np.atleast_2d(np.full(a.shape, voltage))
     else:
         V = np.atleast_2d(voltage)
 
@@ -629,8 +608,8 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
 
     # Explicit solutions where Rs=0
     if np.any(idx_z):
-        I[:, idx_z.squeeze()] = IL[idx_z] - I0[idx_z] * np.expm1(V[:, idx_z.squeeze()] / a[idx_z]) - \
-            Gsh[idx_z] * V[:, idx_z.squeeze()]
+        I[:, idx_z] = IL[idx_z] - I0[idx_z] * np.expm1(V[:, idx_z] / a[idx_z]) - \
+            Gsh[idx_z] * V[:, idx_z]
 
     # Only compute using LambertW if there are cases with Rs>0
     # Does NOT handle possibility of overflow, github issue 298
@@ -638,7 +617,7 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
         # LambertW argument, cannot be float128, may overflow to np.inf
         argW = Rs[idx_p] * I0[idx_p] / (
             a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)) * \
-            np.exp((Rs[idx_p] * (IL[idx_p] + I0[idx_p]) + V[:, idx_p.squeeze()]) /
+            np.exp((Rs[idx_p] * (IL[idx_p] + I0[idx_p]) + V[:, idx_p]) /
                    (a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)))
 
         # lambertw typically returns complex value with zero imaginary part
@@ -648,17 +627,16 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
         # Eqn. 2 in Jain and Kapoor, 2004
         #  I = -V/(Rs + Rsh) - (a/Rs)*lambertwterm + Rsh*(IL + I0)/(Rs + Rsh)
         # Recast in terms of Gsh=1/Rsh for better numerical stability.
-        I[:, idx_p.squeeze()] = (IL[idx_p] + I0[idx_p] - V[:, idx_p.squeeze()] * Gsh[idx_p]) / \
+        I[:, idx_p] = (IL[idx_p] + I0[idx_p] - V[:, idx_p] * Gsh[idx_p]) / \
             (Rs[idx_p] * Gsh[idx_p] + 1.) - (
             a[idx_p] / Rs[idx_p]) * lambertwterm
 
-    if output_is_scalar:
+    # prioritize the shape of voltage by passing it first
+    shape = _get_size_and_shape((voltage, *args))[1]
+
+    if shape is None:
         return I.item()
-    elif I.size == 1:
-        # when inputs are arrays of size 1, output I with matching shape
-        return np.full(nNsVth.shape, I.item())
-    else:
-        return I.squeeze()
+    return I.reshape(shape)
 
 
 def _lambertw(photocurrent, saturation_current, resistance_series,
