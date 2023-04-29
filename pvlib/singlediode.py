@@ -523,29 +523,27 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-    Gsh, Rs, a, I0, IL = np.broadcast_arrays(*args)
 
-    # shapes of the above must be equal
-    # all scalar with current being (N,) is not allowed, current must be (N, 1)
+    Gsh, Rs, a, I0, IL = map(np.transpose, map(np.atleast_2d, np.broadcast_arrays(*args)))
+    I = np.atleast_2d(current)
+    num_curves = max(_get_size_and_shape(args)[0], I.shape[0])
 
-    if np.isscalar(current):
-        I = np.atleast_2d(np.full(a.shape, current))
-    else:
-        I = np.atleast_2d(current)
+    if I.shape[0] == 1:
+        I = np.tile(current, (num_curves, 1))
 
     # Intitalize output V (I might not be float64)
     V = np.full_like(I, np.nan, dtype=np.float64)
 
     # Determine indices where 0 < Gsh requires implicit model solution
-    idx_p = 0. < Gsh
+    idx_p = 0. < Gsh.squeeze()
 
     # Determine indices where 0 = Gsh allows explicit model solution
-    idx_z = 0. == Gsh
+    idx_z = 0. == Gsh.squeeze()
 
     # Explicit solutions where Gsh=0
     if np.any(idx_z):
-        V[:, idx_z] = a[idx_z] * np.log1p((IL[idx_z] - I[:, idx_z]) / I0[idx_z]) - \
-            I[:, idx_z] * Rs[idx_z]
+        V[idx_z] = a[idx_z] * np.log1p((IL[idx_z] - I[idx_z]) / I0[idx_z]) - \
+            I[idx_z] * Rs[idx_z]
 
     # Only compute using LambertW if there are cases with Gsh>0
     if np.any(idx_p):
@@ -553,7 +551,7 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
         # overflow is explicitly handled below, so ignore warnings here
         with np.errstate(over='ignore'):
             argW = (I0[idx_p] / (Gsh[idx_p] * a[idx_p]) *
-                    np.exp((-I[:, idx_p] + IL[idx_p] + I0[idx_p]) /
+                    np.exp((-I[idx_p] + IL[idx_p] + I0[idx_p]) /
                            (Gsh[idx_p] * a[idx_p])))
 
         # lambertw typically returns complex value with zero imaginary part
@@ -568,7 +566,7 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
             # Calculate using log(argW) in case argW is really big
             logargW = (np.log(I0[idx_p]) - np.log(Gsh[idx_p]) -
                        np.log(a[idx_p]) +
-                       (-I[:, idx_p] + IL[idx_p] + I0[idx_p]) /
+                       (-I[idx_p] + IL[idx_p] + I0[idx_p]) /
                        (Gsh[idx_p] * a[idx_p]))[idx_inf]
 
             # Three iterations of Newton-Raphson method to solve
@@ -583,15 +581,16 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
         # Eqn. 3 in Jain and Kapoor, 2004
         #  V = -I*(Rs + Rsh) + IL*Rsh - a*lambertwterm + I0*Rsh
         # Recast in terms of Gsh=1/Rsh for better numerical stability.
-        V[:, idx_p] = (IL[idx_p] + I0[idx_p] - I[:, idx_p]) / Gsh[idx_p] - \
-            I[:, idx_p] * Rs[idx_p] - a[idx_p] * lambertwterm
+        V[idx_p] = (IL[idx_p] + I0[idx_p] - I[idx_p]) / Gsh[idx_p] - \
+            I[idx_p] * Rs[idx_p] - a[idx_p] * lambertwterm
 
-    # prioritize the shape of current by passing it first
-    shape = _get_size_and_shape((current, *args))[1]
+    shape_current = _get_size_and_shape((current,))[1]
 
-    if shape is None:
+    if shape_current is None and V.size == 1:
         return V.item()
-    return V.reshape(shape)
+    elif num_curves == 1:
+        return V[0]
+    return V
 
 
 def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
@@ -606,26 +605,26 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-    Gsh, Rs, a, I0, IL = np.broadcast_arrays(*args)
+    Gsh, Rs, a, I0, IL = map(np.transpose, map(np.atleast_2d, np.broadcast_arrays(*args)))
+    V = np.atleast_2d(voltage)
+    num_curves = max(_get_size_and_shape(args)[0], V.shape[0])
 
-    if np.isscalar(voltage):
-        V = np.atleast_2d(np.full(a.shape, voltage))
-    else:
-        V = np.atleast_2d(voltage)
+    if V.shape[0] == 1:
+        V = np.tile(voltage, (num_curves, 1))
 
     # Intitalize output I (V might not be float64)
     I = np.full_like(V, np.nan, dtype=np.float64)           # noqa: E741, N806
 
     # Determine indices where 0 < Rs requires implicit model solution
-    idx_p = 0. < Rs
+    idx_p = 0. < Rs.squeeze()
 
     # Determine indices where 0 = Rs allows explicit model solution
-    idx_z = 0. == Rs
+    idx_z = 0. == Rs.squeeze()
 
     # Explicit solutions where Rs=0
     if np.any(idx_z):
-        I[:, idx_z] = IL[idx_z] - I0[idx_z] * np.expm1(V[:, idx_z] / a[idx_z]) - \
-            Gsh[idx_z] * V[:, idx_z]
+        I[idx_z] = IL[idx_z] - I0[idx_z] * np.expm1(V[idx_z] / a[idx_z]) - \
+            Gsh[idx_z] * V[idx_z]
 
     # Only compute using LambertW if there are cases with Rs>0
     # Does NOT handle possibility of overflow, github issue 298
@@ -633,7 +632,7 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
         # LambertW argument, cannot be float128, may overflow to np.inf
         argW = Rs[idx_p] * I0[idx_p] / (
             a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)) * \
-            np.exp((Rs[idx_p] * (IL[idx_p] + I0[idx_p]) + V[:, idx_p]) /
+            np.exp((Rs[idx_p] * (IL[idx_p] + I0[idx_p]) + V[idx_p]) /
                    (a[idx_p] * (Rs[idx_p] * Gsh[idx_p] + 1.)))
 
         # lambertw typically returns complex value with zero imaginary part
@@ -643,16 +642,17 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
         # Eqn. 2 in Jain and Kapoor, 2004
         #  I = -V/(Rs + Rsh) - (a/Rs)*lambertwterm + Rsh*(IL + I0)/(Rs + Rsh)
         # Recast in terms of Gsh=1/Rsh for better numerical stability.
-        I[:, idx_p] = (IL[idx_p] + I0[idx_p] - V[:, idx_p] * Gsh[idx_p]) / \
+        I[idx_p] = (IL[idx_p] + I0[idx_p] - V[idx_p] * Gsh[idx_p]) / \
             (Rs[idx_p] * Gsh[idx_p] + 1.) - (
             a[idx_p] / Rs[idx_p]) * lambertwterm
 
-    # prioritize the shape of voltage by passing it first
-    shape = _get_size_and_shape((voltage, *args))[1]
+    shape_voltage = _get_size_and_shape((voltage,))[1]
 
-    if shape is None:
+    if shape_voltage is None and I.size == 1:
         return I.item()
-    return I.reshape(shape)
+    elif num_curves == 1:
+        return I[0]
+    return I
 
 
 def _lambertw(photocurrent, saturation_current, resistance_series,

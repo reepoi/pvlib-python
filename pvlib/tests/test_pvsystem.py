@@ -983,11 +983,11 @@ def test_PVSystem_multi_array_calcparams_value_error(
       'Rsh': np.array([np.inf, 20.]),
       'Rs': np.array([0.1, 0.1]),
       'nNsVth': np.array([0.5, 0.5]),
-      'I': np.array([0., 3.]),
+      'I': np.array([[0.], [3.]]),
       'I0': np.array([6.e-7, 6.e-7]),
       'IL': np.array([7., 7.]),
-      'V_expected': np.array([0.5*(np.log(7. + 6.e-7) - np.log(6.e-7)),
-                             7.5049875193450521])
+      'V_expected': np.array([[0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))],
+                             [7.5049875193450521]])
     },
     {  # Can handle mixed inputs with a rank-2 array with infinite shunt
       #  resistance, Rsh=inf gives V=Voc=nNsVth*(np.log(IL + I0) - np.log(I0)
@@ -998,19 +998,19 @@ def test_PVSystem_multi_array_calcparams_value_error(
       'I': 0.,
       'I0': np.array([6.e-7]),
       'IL': np.array([7.]),
-      'V_expected': 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))*np.ones(2)
+      'V_expected': 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))*np.ones((2, 1))
     },
     {  # Can handle ideal series and shunt, Rsh=inf and Rs=0 give
       #  V = nNsVth*(np.log(IL - I + I0) - np.log(I0))
       'Rsh': np.inf,
       'Rs': 0.,
       'nNsVth': 0.5,
-      'I': np.array([[7., 7./2., 0.]]),
+      'I': np.array([7., 7./2., 0.]),
       'I0': 6.e-7,
       'IL': 7.,
-      'V_expected': np.array([[0., 0.5*(np.log(7. - 7./2. + 6.e-7) -
+      'V_expected': np.array([0., 0.5*(np.log(7. - 7./2. + 6.e-7) -
                               np.log(6.e-7)), 0.5*(np.log(7. + 6.e-7) -
-                              np.log(6.e-7))]])
+                              np.log(6.e-7))])
     },
     {  # Can handle only ideal series resistance, no closed form solution
       'Rsh': 20.,
@@ -1060,7 +1060,7 @@ def test_PVSystem_multi_array_calcparams_value_error(
       'I0': np.array([7.05196029e-08, 7.05196029e-08, 1.8739027472625636e-09]),
       'IL': np.array([10.491262, 10.491262, 5.1366949999999996]),
       'V_expected': np.array([2.89*np.log1p(10.491262/7.05196029e-08),
-                              54.303958833791455, 58.19323124611128])
+                              54.303958833791455, 58.19323124611128])[:, None]
     }])
 def fixture_v_from_i(request):
     return request.param
@@ -1144,10 +1144,10 @@ def test_i_from_v_from_i(fixture_v_from_i):
       'Rsh': np.array([20., 20.]),
       'Rs': np.array([0., 0.1]),
       'nNsVth': np.array([0.5, 0.5]),
-      'V': np.array([0., 7.5049875193450521]),
+      'V': np.array([[0.], [7.5049875193450521]]),
       'I0': np.array([6.e-7, 6.e-7]),
       'IL': np.array([7., 7.]),
-      'I_expected': np.array([7., 3.])
+      'I_expected': np.array([[7.], [3.]])
     },
     {  # Can handle mixed inputs with a rank-2 array with zero series
       #  resistance, Rs=0 gives I=IL=Isc at V=0
@@ -1157,19 +1157,19 @@ def test_i_from_v_from_i(fixture_v_from_i):
       'V': 0.,
       'I0': np.array([6.e-7]),
       'IL': np.array([7.]),
-      'I_expected': np.array([7., 7., 7., 7.])
+      'I_expected': np.array([[7.], [7.], [7.], [7.]])
     },
     {  # Can handle ideal series and shunt, Rsh=inf and Rs=0 give
       #  V_oc = nNsVth*(np.log(IL + I0) - np.log(I0))
       'Rsh': np.inf,
       'Rs': 0.,
       'nNsVth': 0.5,
-      'V': np.array([[0., 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))/2.,
-                     0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))]]),
+      'V': np.array([0., 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))/2.,
+                     0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))]),
       'I0': 6.e-7,
       'IL': 7.,
-      'I_expected': np.array([[7., 7. - 6.e-7*np.expm1((np.log(7. + 6.e-7) -
-                              np.log(6.e-7))/2.), 0.]])
+      'I_expected': np.array([7., 7. - 6.e-7*np.expm1((np.log(7. + 6.e-7) -
+                              np.log(6.e-7))/2.), 0.])
     },
     {  # Can handle only ideal shunt resistance, no closed form solution
       'Rsh': np.inf,
