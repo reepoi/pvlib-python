@@ -153,6 +153,12 @@ def bishop88(diode_voltage, photocurrent, saturation_current,
        2010
        :doi:`10.4229/25thEUPVSEC2010-4BV.1.114`
     """
+    # args = (diode_voltage, photocurrent, saturation_current, resistance_series,
+    #         resistance_shunt, nNsVth, d2mutau, NsVbi, breakdown_factor,
+    #         breakdown_voltage, breakdown_exp)
+    # (diode_voltage, photocurrent, saturation_current, resistance_series,
+    #  resistance_shunt, nNsVth, d2mutau, NsVbi, breakdown_factor,
+    #  breakdown_voltage, breakdown_exp) = np.atleast_2d(*args)
     # calculate recombination loss current where d2mutau > 0
     is_recomb = d2mutau > 0  # True where there is thin-film recombination loss
     v_recomb = np.where(is_recomb, NsVbi - diode_voltage, np.inf)
@@ -287,7 +293,12 @@ def bishop88_i_from_v(voltage, photocurrent, saturation_current,
                     args=args)
     else:
         raise NotImplementedError("Method '%s' isn't implemented" % method)
-    return bishop88(vd, *args)[0]
+    shape = _get_size_and_shape((voltage, *args))[1]
+    vd, *args = np.atleast_2d(vd, *args)
+    i = bishop88(vd, *args)[0]
+    if shape is None:
+        return i.item()
+    return i.reshape(shape)
 
 
 def bishop88_v_from_i(current, photocurrent, saturation_current,
@@ -374,7 +385,12 @@ def bishop88_v_from_i(current, photocurrent, saturation_current,
                     args=args)
     else:
         raise NotImplementedError("Method '%s' isn't implemented" % method)
-    return bishop88(vd, *args)[1]
+    shape = _get_size_and_shape((current, *args))[1]
+    vd, *args = np.atleast_2d(vd, *args)
+    v = bishop88(vd, *args)[1]
+    if shape is None:
+        return v.item()
+    return v.reshape(shape)
 
 
 def bishop88_mpp(photocurrent, saturation_current, resistance_series,

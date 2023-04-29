@@ -1164,12 +1164,12 @@ def test_i_from_v_from_i(fixture_v_from_i):
       'Rsh': np.inf,
       'Rs': 0.,
       'nNsVth': 0.5,
-      'V': np.array([0., 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))/2.,
-                     0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))]),
+      'V': np.array([[0., 0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))/2.,
+                     0.5*(np.log(7. + 6.e-7) - np.log(6.e-7))]]),
       'I0': 6.e-7,
       'IL': 7.,
-      'I_expected': np.array([7., 7. - 6.e-7*np.expm1((np.log(7. + 6.e-7) -
-                              np.log(6.e-7))/2.), 0.])
+      'I_expected': np.array([[7., 7. - 6.e-7*np.expm1((np.log(7. + 6.e-7) -
+                              np.log(6.e-7))/2.), 0.]])
     },
     {  # Can handle only ideal shunt resistance, no closed form solution
       'Rsh': np.inf,

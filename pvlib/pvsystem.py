@@ -2995,9 +2995,9 @@ def v_from_i(resistance_shunt, resistance_series, nNsVth, current,
     except ValueError:
         raise ValueError('Expected all single diode model parameters to be broadcastable to 1d arrays.')
 
-    if all(map(np.isscalar, kwargs.values())) and not np.isscalar(current) and current.ndim == 1:
-        raise ValueError('Given parameters for one single diode model, but current has shape {current.shape}.'
-                         'Please pass current with shape {current.T.shape} to use multiple currents for one model.')
+    if all(map(np.isscalar, kwargs.values())) and not np.isscalar(current) and current.ndim == 1 and current.size > 1:
+        raise ValueError(f'Given parameters for one single diode model, but current has shape {current.shape}.'
+                         + f'Please pass current with shape {current.T.shape} to use multiple currents for one model.')
 
     if method.lower() == 'lambertw':
         return _singlediode._lambertw_v_from_i(current=current, **kwargs)
@@ -3084,11 +3084,22 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
        parameters of real solar cells using Lambert W-function", Solar
        Energy Materials and Solar Cells, 81 (2004) 269-277.
     '''
+    kwargs = {'resistance_shunt': resistance_shunt,
+              'resistance_series': resistance_series,
+              'nNsVth': nNsVth, 'saturation_current': saturation_current,
+              'photocurrent': photocurrent}
+
+    try:
+        np.broadcast_arrays(*kwargs.values())
+    except ValueError:
+        raise ValueError('Expected all single diode model parameters to be broadcastable to 1d arrays.')
+
+    if all(map(np.isscalar, kwargs.values())) and not np.isscalar(voltage) and voltage.ndim == 1 and voltage.size > 1:
+        raise ValueError(f'Given parameters for one single diode model, but voltage has shape {voltage.shape}.'
+                         + f'Please pass voltage with shape {voltage.T.shape} to use multiple voltages for one model.')
+
     if method.lower() == 'lambertw':
-        current = _singlediode._lambertw_i_from_v(
-            resistance_shunt, resistance_series, nNsVth, voltage,
-            saturation_current, photocurrent
-        )
+        current = _singlediode._lambertw_i_from_v(voltage=voltage, **kwargs)
         return current
         if np.isscalar(current):
             return current

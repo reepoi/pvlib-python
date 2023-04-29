@@ -32,7 +32,6 @@ def test_method_spr_e20_327(method, cec_module_spr_e20_327):
     assert np.isclose(pvs['i_sc'], isc)
     assert np.isclose(pvs['v_oc'], voc)
     # the singlediode method doesn't actually get the MPP correct
-    breakpoint()
     pvs_imp = pvsystem.i_from_v(rsh, rs, nnsvt, vmp, io, il, method='lambertw')
     pvs_vmp = pvsystem.v_from_i(rsh, rs, nnsvt, imp, io, il, method='lambertw')
     assert np.isclose(pvs_imp, imp)
