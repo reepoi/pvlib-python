@@ -293,12 +293,18 @@ def bishop88_i_from_v(voltage, photocurrent, saturation_current,
                     args=args)
     else:
         raise NotImplementedError("Method '%s' isn't implemented" % method)
-    shape = _get_size_and_shape((voltage, *args))[1]
+
+    shape_voltage = _get_size_and_shape((voltage,))[1]
+
     vd, *args = np.atleast_2d(vd, *args)
     i = bishop88(vd, *args)[0]
-    if shape is None:
+
+    if shape_voltage is None and i.size == 1:
         return i.item()
-    return i.reshape(shape)
+    if i.shape[0] == 1:
+        if shape_voltage is None or len(shape_voltage) == 1:
+            return i[0]
+    return i
 
 
 def bishop88_v_from_i(current, photocurrent, saturation_current,
@@ -385,12 +391,18 @@ def bishop88_v_from_i(current, photocurrent, saturation_current,
                     args=args)
     else:
         raise NotImplementedError("Method '%s' isn't implemented" % method)
-    shape = _get_size_and_shape((current, *args))[1]
+
+    shape_current = _get_size_and_shape((current,))[1]
+
     vd, *args = np.atleast_2d(vd, *args)
     v = bishop88(vd, *args)[1]
-    if shape is None:
+
+    if shape_current is None and v.size == 1:
         return v.item()
-    return v.reshape(shape)
+    if v.shape[0] == 1:
+        if shape_current is None or len(shape_current) == 1:
+            return v[0]
+    return v
 
 
 def bishop88_mpp(photocurrent, saturation_current, resistance_series,
