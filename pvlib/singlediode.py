@@ -523,22 +523,22 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-
-    Gsh, Rs, a, I0, IL = map(np.transpose, map(np.atleast_2d, np.broadcast_arrays(*args)))
     I = np.atleast_2d(current)
-    num_curves = max(_get_size_and_shape(args)[0], I.shape[0])
+    num_curves = max(_get_size_and_shape(args)[0], I.shape[1])
 
-    if I.shape[0] == 1:
-        I = np.tile(current, (num_curves, 1))
+    if I.shape[1] == 1:  # manually broadcast, can be done with np.broadcast arrays?
+        I = np.tile(current, (1, num_curves))
+
+    I, Gsh, Rs, a, I0, IL = map(np.atleast_2d, np.broadcast_arrays(I, *args))
 
     # Intitalize output V (I might not be float64)
     V = np.full_like(I, np.nan, dtype=np.float64)
 
     # Determine indices where 0 < Gsh requires implicit model solution
-    idx_p = 0. < Gsh.squeeze()
+    idx_p = 0. < Gsh
 
     # Determine indices where 0 = Gsh allows explicit model solution
-    idx_z = 0. == Gsh.squeeze()
+    idx_z = 0. == Gsh
 
     # Explicit solutions where Gsh=0
     if np.any(idx_z):
@@ -588,7 +588,7 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
 
     if shape_current is None and V.size == 1:
         return V.item()
-    elif num_curves == 1:
+    elif V.shape[0] == 1:
         return V[0]
     return V
 
@@ -605,21 +605,22 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
     # Ensure that we are working with read-only views of numpy arrays
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
-    Gsh, Rs, a, I0, IL = map(np.transpose, map(np.atleast_2d, np.broadcast_arrays(*args)))
     V = np.atleast_2d(voltage)
-    num_curves = max(_get_size_and_shape(args)[0], V.shape[0])
+    num_curves = max(_get_size_and_shape(args)[0], V.shape[1])
 
-    if V.shape[0] == 1:
-        V = np.tile(voltage, (num_curves, 1))
+    if V.shape[1] == 1:
+        V = np.tile(voltage, (1, num_curves))
+
+    V, Gsh, Rs, a, I0, IL = map(np.atleast_2d, np.broadcast_arrays(V, *args))
 
     # Intitalize output I (V might not be float64)
     I = np.full_like(V, np.nan, dtype=np.float64)           # noqa: E741, N806
 
     # Determine indices where 0 < Rs requires implicit model solution
-    idx_p = 0. < Rs.squeeze()
+    idx_p = 0. < Rs
 
     # Determine indices where 0 = Rs allows explicit model solution
-    idx_z = 0. == Rs.squeeze()
+    idx_z = 0. == Rs
 
     # Explicit solutions where Rs=0
     if np.any(idx_z):
@@ -650,7 +651,7 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
 
     if shape_voltage is None and I.size == 1:
         return I.item()
-    elif num_curves == 1:
+    elif I.shape[0] == 1:
         return I[0]
     return I
 
