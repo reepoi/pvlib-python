@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import itertools
 
 import numpy as np
 from numpy import nan, array
@@ -1229,6 +1230,64 @@ def test_i_from_v(fixture_i_from_v, method, atol):
         assert(isinstance(I.dtype, type(I_expected.dtype)))
         assert(I.shape == I_expected.shape)
     assert_allclose(I, I_expected, atol=atol)
+
+
+def get_v_from_i_from_v_test_shapes_methods():
+    return [(*shapes, method) for shapes, method in itertools.product([
+        [(1,), (1,), (1,)],
+        [(1, 1), (1,), (1,)],
+        [(1,), (1, 1), (1, 1)],
+        [(1, 1), (1, 1), (1, 1)],
+        [(5,), (1,), (5,)],
+        [(5,), (1, 1), (1, 5)],
+        [(1, 5), (1,), (5,)],
+        [(1, 5), (1, 1), (1, 5)],
+        [(1, 1), (5, 1), (5, 1)],
+        [(1, 5), (10, 1), (10, 5)],
+        [(1, 5), (10, 5), (10, 5)]
+    ], ('lambertw', 'brentq', 'newton'))]
+
+
+@pytest.mark.parametrize('SDE_param_shape, I_shape, V_expected_shape, method',
+                         get_v_from_i_from_v_test_shapes_methods())
+def test_v_from_i_shapes(SDE_param_shape, I_shape, V_expected_shape, method):
+    params = {  # Can handle all rank-1 singleton array inputs
+     'current': np.array([3.]),
+     'photocurrent': np.array([7.]),
+     'saturation_current': np.array([6.e-7]),
+     'resistance_series': np.array([0.1]),
+     'resistance_shunt': np.array([20.]),
+     'nNsVth': np.array([0.5])
+    }
+    params['resistance_shunt'] = np.tile(params['resistance_shunt'], SDE_param_shape)
+    params['current'] = np.tile(params['current'], I_shape)
+    V_expected = np.tile(np.array([7.5049875193450521]), V_expected_shape)
+
+    V = pvsystem.v_from_i(method=method, **params)
+
+    assert V.shape == V_expected_shape
+    assert_allclose(V, V_expected, atol=1e-11)
+
+
+@pytest.mark.parametrize('SDE_param_shape, V_shape, I_expected_shape, method',
+                         get_v_from_i_from_v_test_shapes_methods())
+def test_i_from_v_shapes(SDE_param_shape, V_shape, I_expected_shape, method):
+    params = {
+      'voltage': np.array([7.5049875193450521]),
+      'photocurrent': np.array([7.]),
+      'saturation_current': np.array([6.e-7]),
+      'resistance_series': np.array([0.1]),
+      'resistance_shunt': np.array([20.]),
+      'nNsVth': np.array([0.5])
+    }
+    params['resistance_shunt'] = np.tile(params['resistance_shunt'], SDE_param_shape)
+    params['voltage'] = np.tile(params['voltage'], V_shape)
+    I_expected = np.tile(np.array([3.]), I_expected_shape)
+
+    I = pvsystem.i_from_v(method=method, **params)
+
+    assert I.shape == I_expected_shape
+    assert_allclose(I, I_expected, atol=1e-11)
 
 
 def test_PVSystem_i_from_v(mocker):

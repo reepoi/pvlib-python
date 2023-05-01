@@ -589,7 +589,8 @@ def _lambertw_v_from_i(resistance_shunt, resistance_series, nNsVth, current,
     if shape_current is None and V.size == 1:
         return V.item()
     elif V.shape[0] == 1:
-        return V[0]
+        if shape_current is None or len(shape_current) == 1:
+            return V[0]
     return V
 
 
@@ -611,7 +612,8 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
     if V.shape[1] == 1:
         V = np.tile(voltage, (1, num_curves))
 
-    V, Gsh, Rs, a, I0, IL = map(np.atleast_2d, np.broadcast_arrays(V, *args))
+    V, Gsh, Rs, a, I0, IL = map(np.atleast_2d, np.broadcast_arrays(voltage, *args))
+    # V, Gsh, Rs, a, I0, IL = np.broadcast_arrays(*map(np.atleast_2d, (voltage, *args)))
 
     # Intitalize output I (V might not be float64)
     I = np.full_like(V, np.nan, dtype=np.float64)           # noqa: E741, N806
@@ -652,7 +654,8 @@ def _lambertw_i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
     if shape_voltage is None and I.size == 1:
         return I.item()
     elif I.shape[0] == 1:
-        return I[0]
+        if shape_voltage is None or len(shape_voltage) == 1:
+            return I[0]
     return I
 
 
