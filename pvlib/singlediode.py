@@ -260,9 +260,10 @@ def bishop88_i_from_v(voltage, photocurrent, saturation_current,
         current (I) at the specified voltage (V). [A]
     """
     # collect args
-    args = (photocurrent, saturation_current, resistance_series,
+    args = [photocurrent, saturation_current, resistance_series,
             resistance_shunt, nNsVth, d2mutau, NsVbi,
-            breakdown_factor, breakdown_voltage, breakdown_exp)
+            breakdown_factor, breakdown_voltage, breakdown_exp]
+    # V, *args = map(np.atleast_2d, (voltage, *args))
 
     def fv(x, v, *a):
         # calculate voltage residual given diode voltage "x"
@@ -287,8 +288,9 @@ def bishop88_i_from_v(voltage, photocurrent, saturation_current,
     elif method.lower() == 'newton':
         # make sure all args are numpy arrays if max size > 1
         # if voltage is an array, then make a copy to use for initial guess, v0
+        v0, *args[:5] = np.broadcast_arrays(voltage, *args[:5])
         args, v0 = _prepare_newton_inputs((voltage,), args, voltage)
-        vd = newton(func=lambda x, *a: fv(x, voltage, *a), x0=v0,
+        vd = newton(func=lambda x, *a: fv(x, v0, *a), x0=v0,
                     fprime=lambda x, *a: bishop88(x, *a, gradients=True)[4],
                     args=args)
     else:
@@ -362,6 +364,7 @@ def bishop88_v_from_i(current, photocurrent, saturation_current,
     args = (photocurrent, saturation_current, resistance_series,
             resistance_shunt, nNsVth, d2mutau, NsVbi, breakdown_factor,
             breakdown_voltage, breakdown_exp)
+    I, *args = map(np.atleast_2d, (current, *args))
     # first bound the search using voc
     voc_est = estimate_voc(photocurrent, saturation_current, nNsVth)
 
@@ -381,12 +384,12 @@ def bishop88_v_from_i(current, photocurrent, saturation_current,
                                 breakdown_exp))
 
         vd_from_brent_vectorized = np.vectorize(vd_from_brent)
-        vd = vd_from_brent_vectorized(voc_est, current, *args)
+        vd = vd_from_brent_vectorized(voc_est, I, *args)
     elif method.lower() == 'newton':
         # make sure all args are numpy arrays if max size > 1
         # if voc_est is an array, then make a copy to use for initial guess, v0
-        args, v0 = _prepare_newton_inputs((current,), args, voc_est)
-        vd = newton(func=lambda x, *a: fi(x, current, *a), x0=v0,
+        args, v0 = _prepare_newton_inputs((I,), args, voc_est)
+        vd = newton(func=lambda x, *a: fi(x, I, *a), x0=v0,
                     fprime=lambda x, *a: bishop88(x, *a, gradients=True)[3],
                     args=args)
     else:
@@ -513,7 +516,7 @@ def _get_size_and_shape(args):
 def _prepare_newton_inputs(i_or_v_tup, args, v0):
     # broadcast arguments for newton method
     # the first argument should be a tuple, eg: (i,), (v,) or ()
-    size, shape = _get_size_and_shape(i_or_v_tup + args)
+    size, shape = _get_size_and_shape((*i_or_v_tup, *args))
     if size > 1:
         args = [np.asarray(arg) for arg in args]
     # newton uses initial guess for the output shape
