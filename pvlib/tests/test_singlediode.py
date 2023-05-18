@@ -54,10 +54,9 @@ def test_newton_fs_495(method, cec_module_fs_495):
         R_sh_ref=fs_495['R_sh_ref'], R_s=fs_495['R_s'],
         EgRef=1.475, dEgdT=-0.0003)
     il, io, rs, rsh, nnsvt = x
-    x += (101, )
     pvs = pvsystem.singlediode(*x, method='lambertw')
     out = pvsystem.singlediode(*x, method=method)
-    isc, voc, imp, vmp, pmp, ix, ixx, i, v = out.values()
+    isc, voc, imp, vmp, pmp, ix, ixx = out.values()
     assert np.isclose(pvs['i_sc'], isc)
     assert np.isclose(pvs['v_oc'], voc)
     # the singlediode method doesn't actually get the MPP correct
@@ -162,7 +161,7 @@ def precise_iv_curves(request):
 @pytest.mark.parametrize('method', ['lambertw', 'brentq', 'newton'])
 def test_singlediode_precision(method, precise_iv_curves):
     """
-    Tests the accuracy of singlediode. ivcurve_pnts is not tested.
+    Tests the accuracy of singlediode.
     """
     x, pc = precise_iv_curves
     outs = pvsystem.singlediode(method=method, **x)
@@ -178,21 +177,6 @@ def test_singlediode_precision(method, precise_iv_curves):
     # The atol was lowered to pass on Linux when the vectorized umath module
     # introduced in NumPy 1.22.0 is used.
     assert np.allclose(pc['i_xx'], outs['i_xx'], atol=1e-6, rtol=0)
-
-
-@pytest.mark.parametrize('method', ['lambertw'])
-def test_ivcurve_pnts_precision(method, precise_iv_curves):
-    """
-    Tests the accuracy of the IV curve points calcuated by singlediode. Only
-    methods of singlediode that linearly spaced points are tested.
-    """
-    x, pc = precise_iv_curves
-    pc_i, pc_v = np.stack(pc['Currents']), np.stack(pc['Voltages'])
-    ivcurve_pnts = len(pc['Currents'][0])
-    outs = pvsystem.singlediode(method=method, ivcurve_pnts=ivcurve_pnts, **x)
-
-    assert np.allclose(pc_i, outs['i'], atol=1e-10, rtol=0)
-    assert np.allclose(pc_v, outs['v'], atol=1e-10, rtol=0)
 
 
 @pytest.mark.parametrize('method', ['lambertw', 'brentq', 'newton'])
