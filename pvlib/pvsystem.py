@@ -2990,6 +2990,8 @@ def v_from_i(resistance_shunt, resistance_series, nNsVth, current,
        parameters of real solar cells using Lambert W-function", Solar
        Energy Materials and Solar Cells, 81 (2004) 269-277.
     '''
+    args = (current, photocurrent, saturation_current, resistance_series,
+            resistance_shunt, nNsVth)
     if method.lower() == 'lambertw':
         return _singlediode._lambertw_v_from_i(
             resistance_shunt, resistance_series, nNsVth, current,
@@ -2999,19 +3001,25 @@ def v_from_i(resistance_shunt, resistance_series, nNsVth, current,
         # Calculate points on the IV curve using either 'newton' or 'brentq'
         # methods. Voltages are determined by first solving the single diode
         # equation for the diode voltage V_d then backing out voltage
-        args = (current, photocurrent, saturation_current,
-                resistance_series, resistance_shunt, nNsVth)
-        V = _singlediode.bishop88_v_from_i(*args, method=method.lower())
+        voltage = _singlediode.bishop88_v_from_i(*args, method=method.lower())
         # find the right size and shape for returns
         size, shape = _singlediode._get_size_and_shape(args)
         if size <= 1:
             if shape is not None:
-                V = np.tile(V, shape)
-        if np.isnan(V).any() and size <= 1:
-            V = np.repeat(V, size)
+                voltage = np.tile(voltage, shape)
+        if np.isnan(voltage).any() and size <= 1:
+            voltage = np.repeat(voltage, size)
             if shape is not None:
-                V = V.reshape(shape)
-        return V
+                voltage = voltage.reshape(shape)
+
+    # save the first available pd.Series index, otherwise set to None
+    index = next((a.index for a in args if isinstance(a, pd.Series)), None)
+
+    if np.isscalar(voltage) or voltage.ndim == 0:
+        return voltage
+    if voltage.ndim == 1:
+        return pd.Series(voltage, index=index)
+    return pd.DataFrame(voltage, index=index)
 
 
 def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
@@ -3078,8 +3086,10 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
        parameters of real solar cells using Lambert W-function", Solar
        Energy Materials and Solar Cells, 81 (2004) 269-277.
     '''
+    args = (voltage, photocurrent, saturation_current, resistance_series,
+            resistance_shunt, nNsVth)  # collect args
     if method.lower() == 'lambertw':
-        return _singlediode._lambertw_i_from_v(
+        current = _singlediode._lambertw_i_from_v(
             resistance_shunt, resistance_series, nNsVth, voltage,
             saturation_current, photocurrent
         )
@@ -3087,8 +3097,6 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
         # Calculate points on the IV curve using either 'newton' or 'brentq'
         # methods. Voltages are determined by first solving the single diode
         # equation for the diode voltage V_d then backing out voltage
-        args = (voltage, photocurrent, saturation_current, resistance_series,
-                resistance_shunt, nNsVth)
         current = _singlediode.bishop88_i_from_v(*args, method=method.lower())
         # find the right size and shape for returns
         size, shape = _singlediode._get_size_and_shape(args)
@@ -3099,7 +3107,15 @@ def i_from_v(resistance_shunt, resistance_series, nNsVth, voltage,
             current = np.repeat(current, size)
             if shape is not None:
                 current = current.reshape(shape)
+
+    # save the first available pd.Series index, otherwise set to None
+    index = next((a.index for a in args if isinstance(a, pd.Series)), None)
+
+    if np.isscalar(current) or current.ndim == 0:
         return current
+    if current.ndim == 1:
+        return pd.Series(current, index=index)
+    return pd.DataFrame(current, index=index)
 
 
 def scale_voltage_current_power(data, voltage=1, current=1):
