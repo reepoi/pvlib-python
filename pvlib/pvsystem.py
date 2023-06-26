@@ -2461,6 +2461,7 @@ def singlediode(photocurrent, saturation_current, resistance_series,
     """
     I = 10
     if ivcurve_pnts:
+        print(I)
         warn_deprecated('0.10.0', name='pvlib.pvsystem.singlediode',
                         alternative=('pvlib.pvsystem.v_from_i and '
                                      'pvlib.pvsystem.i_from_v'),

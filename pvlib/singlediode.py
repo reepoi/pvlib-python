@@ -645,11 +645,11 @@ def _prepare_newton_inputs(i_or_v_tup, args, v0, method_kwargs):
     return args, v0, method_kwargs
 
 
-def _lambertw_v_from_i(current, photocurrent, saturation_current,
+def _lambertw_v_from_i(CURRENT, photocurrent, saturation_current,
                        resistance_series, resistance_shunt, nNsVth):
     # Record if inputs were all scalar
     output_is_scalar = all(map(np.isscalar,
-                               (current, photocurrent, saturation_current,
+                               (CURRENT, photocurrent, saturation_current,
                                 resistance_series, resistance_shunt, nNsVth)))
 
     # This transforms Gsh=1/Rsh, including ideal Rsh=np.inf into Gsh=0., which
@@ -660,7 +660,7 @@ def _lambertw_v_from_i(current, photocurrent, saturation_current,
     # Turns Series into arrays so that we don't have to worry about
     #  multidimensional broadcasting failing
     I, IL, I0, Rs, Gsh, a = \
-        np.broadcast_arrays(current, photocurrent, saturation_current,
+        np.broadcast_arrays(CURRENT, photocurrent, saturation_current,
                             resistance_series, conductance_shunt, nNsVth)
 
     # Intitalize output V (I might not be float64)
