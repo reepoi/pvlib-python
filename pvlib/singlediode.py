@@ -647,7 +647,6 @@ def _prepare_newton_inputs(i_or_v_tup, args, v0, method_kwargs):
 
 def _lambertw_v_from_i(current, photocurrent, saturation_current,
                        resistance_series, resistance_shunt, nNsVth):
-    print('line too long aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
     # Record if inputs were all scalar
     output_is_scalar = all(map(np.isscalar,
                                (current, photocurrent, saturation_current,
@@ -783,6 +782,7 @@ def _lambertw_i_from_v(voltage, photocurrent, saturation_current,
 
 def _lambertw(photocurrent, saturation_current, resistance_series,
               resistance_shunt, nNsVth, ivcurve_pnts=None):
+    print('line too long aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
     # collect args
     params = {'photocurrent': photocurrent,
               'saturation_current': saturation_current,
