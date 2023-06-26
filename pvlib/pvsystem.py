@@ -2459,7 +2459,9 @@ def singlediode(photocurrent, saturation_current, resistance_series,
        photovoltaic cell interconnection circuits" JW Bishop, Solar Cell (1988)
        https://doi.org/10.1016/0379-6787(88)90059-2
     """
+    I = 10
     if ivcurve_pnts:
+        print(I)
         warn_deprecated('0.10.0', name='pvlib.pvsystem.singlediode',
                         alternative=('pvlib.pvsystem.v_from_i and '
                                      'pvlib.pvsystem.i_from_v'),

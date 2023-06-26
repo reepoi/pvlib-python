@@ -782,6 +782,7 @@ def _lambertw_i_from_v(voltage, photocurrent, saturation_current,
 
 def _lambertw(photocurrent, saturation_current, resistance_series,
               resistance_shunt, nNsVth, ivcurve_pnts=None):
+    print('line too long aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
     # collect args
     params = {'photocurrent': photocurrent,
               'saturation_current': saturation_current,
