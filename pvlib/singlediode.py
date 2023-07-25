@@ -56,6 +56,105 @@ def estimate_voc(photocurrent, saturation_current, nNsVth):
     return nNsVth * np.log(np.asarray(photocurrent) / saturation_current + 1.0)
 
 
+def bishop88_no_if(diode_voltage, photocurrent, saturation_current,
+             resistance_series, resistance_shunt, nNsVth, d2mutau=0,
+             NsVbi=np.Inf, breakdown_factor=0., breakdown_voltage=-5.5,
+             breakdown_exp=3.28, gradients=False):
+    """
+    bishop88 but always uses np.power.
+    """
+    # calculate recombination loss current where d2mutau > 0
+    is_recomb = d2mutau > 0  # True where there is thin-film recombination loss
+    v_recomb = np.where(is_recomb, NsVbi - diode_voltage, np.inf)
+    i_recomb = np.where(is_recomb, photocurrent * d2mutau / v_recomb, 0)
+    # calculate temporary values to simplify calculations
+    v_star = diode_voltage / nNsVth  # non-dimensional diode voltage
+    g_sh = 1.0 / resistance_shunt  # conductance
+    brk_term = 1 - diode_voltage / breakdown_voltage
+    brk_pwr = np.power(brk_term, -breakdown_exp)
+    i_breakdown = breakdown_factor * diode_voltage * g_sh * brk_pwr
+    i = (photocurrent - saturation_current * np.expm1(v_star)  # noqa: W503
+         - diode_voltage * g_sh - i_recomb - i_breakdown)   # noqa: W503
+    v = diode_voltage - i * resistance_series
+    retval = (i, v, i*v)
+    if gradients:
+        # calculate recombination loss current gradients where d2mutau > 0
+        grad_i_recomb = np.where(is_recomb, i_recomb / v_recomb, 0)
+        grad_2i_recomb = np.where(is_recomb, 2 * grad_i_recomb / v_recomb, 0)
+        g_diode = saturation_current * np.exp(v_star) / nNsVth  # conductance
+        brk_pwr_1 = np.power(brk_term, -breakdown_exp - 1)
+        brk_pwr_2 = np.power(brk_term, -breakdown_exp - 2)
+        brk_fctr = breakdown_factor * g_sh
+        grad_i_brk = brk_fctr * (brk_pwr + diode_voltage *
+                                 -breakdown_exp * brk_pwr_1)
+        grad2i_brk = (brk_fctr * -breakdown_exp        # noqa: W503
+                      * (2 * brk_pwr_1 + diode_voltage   # noqa: W503
+                         * (-breakdown_exp - 1) * brk_pwr_2))  # noqa: W503
+        grad_i = -g_diode - g_sh - grad_i_recomb - grad_i_brk  # di/dvd
+        grad_v = 1.0 - grad_i * resistance_series  # dv/dvd
+        # dp/dv = d(iv)/dv = v * di/dv + i
+        grad = grad_i / grad_v  # di/dv
+        grad_p = v * grad + i  # dp/dv
+        grad2i = -g_diode / nNsVth - grad_2i_recomb - grad2i_brk  # d2i/dvd
+        grad2v = -grad2i * resistance_series  # d2v/dvd
+        grad2p = (
+            grad_v * grad + v * (grad2i/grad_v - grad_i*grad2v/grad_v**2)
+            + grad_i
+        )  # d2p/dv/dvd
+        retval += (grad_i, grad_v, grad, grad_p, grad2p)
+    return retval
+
+
+def bishop88_where(diode_voltage, photocurrent, saturation_current,
+             resistance_series, resistance_shunt, nNsVth, d2mutau=0,
+             NsVbi=np.Inf, breakdown_factor=0., breakdown_voltage=-5.5,
+             breakdown_exp=3.28, gradients=False):
+    """
+    bishop88 but always uses np.power with its where argument to skip computing
+    powers for values corresponding to where breakdown_factor > 0.
+    """
+    # calculate recombination loss current where d2mutau > 0
+    is_recomb = d2mutau > 0  # True where there is thin-film recombination loss
+    v_recomb = np.where(is_recomb, NsVbi - diode_voltage, np.inf)
+    i_recomb = np.where(is_recomb, photocurrent * d2mutau / v_recomb, 0)
+    # calculate temporary values to simplify calculations
+    v_star = diode_voltage / nNsVth  # non-dimensional diode voltage
+    g_sh = 1.0 / resistance_shunt  # conductance
+    brk_term = 1 - diode_voltage / breakdown_voltage
+    brk_pwr = np.power(brk_term, -breakdown_exp, where=breakdown_factor > 0, out=np.zeros_like(brk_term))
+    i_breakdown = breakdown_factor * diode_voltage * g_sh * brk_pwr
+    i = (photocurrent - saturation_current * np.expm1(v_star)  # noqa: W503
+         - diode_voltage * g_sh - i_recomb - i_breakdown)   # noqa: W503
+    v = diode_voltage - i * resistance_series
+    retval = (i, v, i*v)
+    if gradients:
+        # calculate recombination loss current gradients where d2mutau > 0
+        grad_i_recomb = np.where(is_recomb, i_recomb / v_recomb, 0)
+        grad_2i_recomb = np.where(is_recomb, 2 * grad_i_recomb / v_recomb, 0)
+        g_diode = saturation_current * np.exp(v_star) / nNsVth  # conductance
+        brk_pwr_1 = np.power(brk_term, -breakdown_exp - 1, where=breakdown_factor > 0, out=np.zeros_like(brk_term))
+        brk_pwr_2 = np.power(brk_term, -breakdown_exp - 2, where=breakdown_factor > 0, out=np.zeros_like(brk_term))
+        brk_fctr = breakdown_factor * g_sh
+        grad_i_brk = brk_fctr * (brk_pwr + diode_voltage *
+                                 -breakdown_exp * brk_pwr_1)
+        grad2i_brk = (brk_fctr * -breakdown_exp        # noqa: W503
+                      * (2 * brk_pwr_1 + diode_voltage   # noqa: W503
+                         * (-breakdown_exp - 1) * brk_pwr_2))  # noqa: W503
+        grad_i = -g_diode - g_sh - grad_i_recomb - grad_i_brk  # di/dvd
+        grad_v = 1.0 - grad_i * resistance_series  # dv/dvd
+        # dp/dv = d(iv)/dv = v * di/dv + i
+        grad = grad_i / grad_v  # di/dv
+        grad_p = v * grad + i  # dp/dv
+        grad2i = -g_diode / nNsVth - grad_2i_recomb - grad2i_brk  # d2i/dvd
+        grad2v = -grad2i * resistance_series  # d2v/dvd
+        grad2p = (
+            grad_v * grad + v * (grad2i/grad_v - grad_i*grad2v/grad_v**2)
+            + grad_i
+        )  # d2p/dv/dvd
+        retval += (grad_i, grad_v, grad, grad_p, grad2p)
+    return retval
+
+
 def bishop88(diode_voltage, photocurrent, saturation_current,
              resistance_series, resistance_shunt, nNsVth, d2mutau=0,
              NsVbi=np.Inf, breakdown_factor=0., breakdown_voltage=-5.5,

@@ -7,7 +7,7 @@ import pandas as pd
 import scipy
 from pvlib import pvsystem
 from pvlib.singlediode import (bishop88_mpp, estimate_voc, VOLTAGE_BUILTIN,
-                               bishop88, bishop88_i_from_v, bishop88_v_from_i)
+                               bishop88_where as bishop88, bishop88_i_from_v, bishop88_v_from_i)
 from pvlib._deprecation import pvlibDeprecationWarning
 import pytest
 from .conftest import DATA_DIR
